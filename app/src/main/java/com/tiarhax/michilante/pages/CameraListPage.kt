@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -28,11 +30,22 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
+import com.tiarhax.michilante.components.Camera
+import com.tiarhax.michilante.components.CameraModal
+import com.tiarhax.michilante.components.CameraModalState
 import com.tiarhax.michilante.ewm.storage.CameraRepositoryForPreview
 import com.tiarhax.michilante.pages.ListCameraPageReadyStatePreview
+import com.tiarhax.michilante.viewmodel.CreateCameraViewModel
 
+data class CameraUpsertUIState (
+    val editingCamera: Camera? = null,
+    val showCameraDialog: Boolean = false,
+    val error: String? = null,
+    val status: CameraModalState = CameraModalState.READY
+)
 
 data class CameraListUIState(
+    val cameraUpsertUIState: CameraUpsertUIState = CameraUpsertUIState(),
     val cameras: List<CameraListItem> = emptyList(),
     val status: CameraListPageStatus = CameraListPageStatus.LOADING,
     val error: String? = null
@@ -63,7 +76,8 @@ class CamerasListPageViewModel(
                         val mappedCameras = cameras.map { c ->
                             CameraListItem(
                                 id = c.id,
-                                name = c.name
+                                name = c.name,
+                                sourceUrl = c.sourceUrl
                             )
                         }
                         _uiState.value = _uiState.value.copy(
@@ -72,8 +86,8 @@ class CamerasListPageViewModel(
                         )
                     }
                 },
-                onFailure = {
-                    _uiState.value = _uiState.value.copy(status = CameraListPageStatus.ERROR, cameras = emptyList())
+                onFailure = { error ->
+                    _uiState.value = _uiState.value.copy(status = CameraListPageStatus.ERROR, cameras = emptyList(), error = error.message)
                 }
             );
         }
@@ -81,6 +95,71 @@ class CamerasListPageViewModel(
 
     fun retry() {
         loadCameras()
+    }
+
+    fun showAddCameraDialog() {
+        _uiState.value = _uiState.value.copy(
+            cameraUpsertUIState = _uiState.value.cameraUpsertUIState.copy(
+                showCameraDialog = true
+            )
+        )
+    }
+
+    fun showEditCameraDialog(camera: Camera) {
+        _uiState.value = _uiState.value.copy(
+            cameraUpsertUIState = _uiState.value.cameraUpsertUIState.copy(
+                showCameraDialog = true,
+                editingCamera = camera
+            )
+        )
+    }
+    fun resetCameraForm() {
+        _uiState.value = _uiState.value.copy(
+            cameraUpsertUIState = _uiState.value.cameraUpsertUIState.copy(
+                editingCamera = null,
+                showCameraDialog = false,
+
+            )
+        )
+    }
+    fun dismiss() {
+        resetCameraForm()
+    }
+
+
+
+    fun saveCamera(camera: Camera) {
+        _uiState.value = _uiState.value.copy(
+            cameraUpsertUIState = _uiState.value.cameraUpsertUIState.copy(
+                status = CameraModalState.LOADING
+            )
+        )
+        viewModelScope.launch {
+            repository.putCamera(
+                com.tiarhax.michilante.ewm.storage.PutCameraInput(
+                    id = camera.id,
+                    name = camera.name,
+                    sourceUrl = camera.sourceUrl
+                )
+            ).fold(
+                onSuccess = { out ->
+                    loadCameras()
+                    resetCameraForm()
+                },
+                onFailure = { err ->
+                    _uiState.value = _uiState.value.copy(
+
+                        cameraUpsertUIState = _uiState.value.cameraUpsertUIState.copy(
+                            status = CameraModalState.ERROR,
+                            error = err.message
+
+                        )
+                    )
+                }
+            )
+
+        }
+
     }
 
 
@@ -93,12 +172,26 @@ fun CameraListPage(
     modifier: Modifier,
     viewModel: CamerasListPageViewModel
 ) {
-
+    val scrollState = rememberScrollState()
     val uiState by viewModel.uiState.collectAsState()
 
     Box(modifier = modifier) {
-        Column (modifier = Modifier.fillMaxSize()) {
+        Column (modifier = Modifier.fillMaxSize().verticalScroll(scrollState)) {
             Row (modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End){
+                Button(
+                    onClick = {
+                        viewModel.showAddCameraDialog()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        contentColor = Color.Gray,
+                        containerColor = Color.Transparent
+                    )) {
+                    Icon(
+                        painter = painterResource(R.drawable.plus),
+                        contentDescription = null
+                    )
+                }
+
                 Button(
                     onClick = {
                         viewModel.retry()
@@ -120,7 +213,7 @@ fun CameraListPage(
                 }
 
                 CameraListPageStatus.READY -> {
-                    CameraListPageReadyState(cameras = uiState.cameras)
+                    CameraListPageReadyState(cameras = uiState.cameras, viewModel = viewModel)
                 }
 
                 CameraListPageStatus.ERROR -> {
@@ -133,6 +226,17 @@ fun CameraListPage(
             }
         }
     }
+
+    CameraModal(
+        isVisible = uiState.cameraUpsertUIState.showCameraDialog,
+        camera = uiState.cameraUpsertUIState.editingCamera,
+        onDismiss = {
+            viewModel.dismiss()
+        },
+        onSave = { camera ->
+            viewModel.saveCamera(camera)
+        }
+    )
 }
 
 
@@ -147,23 +251,28 @@ fun CameraListPageLoadingState(
 
 @Composable
 fun CameraListPageReadyState(
-    cameras: List<CameraListItem>
+    cameras: List<CameraListItem>,
+    viewModel: CamerasListPageViewModel
 ) {
-    CameraList(cameras)
+    CameraList(cameras, viewModel)
 }
 
 @Composable
 fun CameraList(
-    cameras: List<CameraListItem>
+    cameras: List<CameraListItem>,
+    viewModel: CamerasListPageViewModel
 ) {
     Column (modifier = Modifier.fillMaxWidth()) {
         cameras.map { c ->
             CameraListCard(
-
-                camera = c
-            ) {
-
-            }
+                camera = c,
+                onEditClickClosure = {
+                    val camera = Camera(id = c.id, name = c.name, sourceUrl = c.sourceUrl)
+                    viewModel.showEditCameraDialog(camera)
+                },
+                onClickInputClosure = {},
+                onDeleteClickClosure = {}
+            )
         }
     }
 }
@@ -202,9 +311,9 @@ fun loadCameras(): List<CameraListItem> {
 fun PreviewCameraListPage() {
 
     val dummyCameras = listOf(
-        CameraListItem(id = "AAABBBCCC", name = "Front Door Camera"),
-        CameraListItem(id = "AAABBBCCD", name = "Backyard Camera"),
-        CameraListItem(id = "AAABBBCCX", name = "Garage Camera")
+        CameraListItem(id = "AAABBBCCC", name = "Front Door Camera", sourceUrl = ""),
+        CameraListItem(id = "AAABBBCCD", name = "Backyard Camera", sourceUrl = ""),
+        CameraListItem(id = "AAABBBCCX", name = "Garage Camera", sourceUrl = "")
     )
 
 
@@ -217,14 +326,14 @@ fun PreviewCameraListPage() {
 fun ListCameraPageReadyStatePreview() {
 
     val dummyCameras = listOf(
-        CameraListItem(id = "AAABBBCCC", name = "Front Door Camera"),
-        CameraListItem(id = "AAABBBCCD", name = "Backyard Camera"),
-        CameraListItem(id = "AAABBBCCX", name = "Garage Camera")
+        CameraListItem(id = "AAABBBCCC", name = "Front Door Camera", sourceUrl = ""),
+        CameraListItem(id = "AAABBBCCD", name = "Backyard Camera", sourceUrl = ""),
+        CameraListItem(id = "AAABBBCCX", name = "Garage Camera", sourceUrl = "")
     )
 
 
 
-    CameraListPageReadyState(cameras = dummyCameras)
+    CameraListPageReadyState(cameras = dummyCameras, viewModel = CamerasListPageViewModel(repository = CameraRepositoryForPreview()),)
 }
 
 
