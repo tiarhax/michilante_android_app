@@ -1,5 +1,7 @@
 package com.tiarhax.michilante.pages
 
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import com.tiarhax.michilante.R
 import androidx.compose.foundation.layout.Box
@@ -9,10 +11,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
@@ -34,6 +39,8 @@ import com.tiarhax.michilante.components.Camera
 import com.tiarhax.michilante.components.CameraModal
 import com.tiarhax.michilante.components.CameraModalState
 import com.tiarhax.michilante.ewm.storage.CameraRepositoryForPreview
+import com.tiarhax.michilante.ewm.storage.CreateCameraInput
+import com.tiarhax.michilante.ewm.storage.PutCameraInput
 import com.tiarhax.michilante.pages.ListCameraPageReadyStatePreview
 import com.tiarhax.michilante.viewmodel.CreateCameraViewModel
 
@@ -45,6 +52,9 @@ data class CameraUpsertUIState (
 )
 
 data class CameraListUIState(
+    val cameraIdToDelete: String? = null,
+    val showDeleteCameraDialog: Boolean = false,
+    val showDeleteFailedDialog: Boolean = false,
     val cameraUpsertUIState: CameraUpsertUIState = CameraUpsertUIState(),
     val cameras: List<CameraListItem> = emptyList(),
     val status: CameraListPageStatus = CameraListPageStatus.LOADING,
@@ -134,34 +144,106 @@ class CamerasListPageViewModel(
                 status = CameraModalState.LOADING
             )
         )
-        viewModelScope.launch {
-            repository.putCamera(
-                com.tiarhax.michilante.ewm.storage.PutCameraInput(
-                    id = camera.id,
-                    name = camera.name,
-                    sourceUrl = camera.sourceUrl
-                )
-            ).fold(
-                onSuccess = { out ->
-                    loadCameras()
-                    resetCameraForm()
-                },
-                onFailure = { err ->
-                    _uiState.value = _uiState.value.copy(
-
-                        cameraUpsertUIState = _uiState.value.cameraUpsertUIState.copy(
-                            status = CameraModalState.ERROR,
-                            error = err.message
-
-                        )
+        Log.d("CamerasListPageViewModel", "updating camera")
+        if (_uiState.value.cameraUpsertUIState.editingCamera != null) {
+            viewModelScope.launch {
+                val editingCamera = _uiState.value.cameraUpsertUIState.editingCamera!!;
+                repository.putCamera(
+                    editingCamera.id!!,
+                    com.tiarhax.michilante.ewm.storage.PutCameraInput(
+                        name = camera.name,
+                        sourceUrl = camera.sourceUrl
                     )
-                }
-            )
+                ).fold(
+                    onSuccess = { out ->
+                        loadCameras()
+                        resetCameraForm()
+                    },
+                    onFailure = { err ->
+                        _uiState.value = _uiState.value.copy(
 
+                            cameraUpsertUIState = _uiState.value.cameraUpsertUIState.copy(
+                                status = CameraModalState.ERROR,
+                                error = err.message
+
+                            )
+                        )
+                    }
+                )
+
+            }
+        } else {
+            Log.d("CamerasListPageViewModel", "creating camera")
+            viewModelScope.launch {
+                repository.createCamera(
+                    CreateCameraInput(
+                        name = camera.name,
+                        sourceUrl = camera.sourceUrl
+                    )
+                ).fold(
+                    onSuccess = { out ->
+                        loadCameras()
+                        resetCameraForm()
+                    },
+                    onFailure = { err ->
+                        _uiState.value = _uiState.value.copy(
+
+                            cameraUpsertUIState = _uiState.value.cameraUpsertUIState.copy(
+                                status = CameraModalState.ERROR,
+                                error = err.message
+
+                            )
+                        )
+                    }
+                )
+
+            }
         }
+
 
     }
 
+    fun deleteCamera(id: String) {
+        Log.d("CamerasListPageViewModel", "deleting camera $id");
+
+        viewModelScope.launch {
+            repository.deleteCamera(id).fold(
+                onSuccess = {
+                    dismissCameraDeleteDialog()
+                    loadCameras()
+
+
+                },
+                onFailure = {
+                    _uiState.value = _uiState.value.copy(
+                        showDeleteCameraDialog = false,
+                        showDeleteFailedDialog = true
+                    )
+                }
+            )
+        }
+    }
+
+    fun dismissCameraDeleteDialog() {
+        _uiState.value = _uiState.value.copy(
+            showDeleteCameraDialog = false,
+            cameraIdToDelete = null
+        )
+    }
+
+    fun dismissCameraDeleteErrorDialog() {
+        _uiState.value = _uiState.value.copy(
+            showDeleteFailedDialog = false,
+            cameraIdToDelete = null
+        )
+    }
+
+    fun showCameraDeleteDialog(id: String) {
+        _uiState.value = _uiState.value.copy(
+            showDeleteCameraDialog = true,
+            cameraIdToDelete = id
+        )
+    }
 
 }
 
@@ -213,7 +295,7 @@ fun CameraListPage(
                 }
 
                 CameraListPageStatus.READY -> {
-                    CameraListPageReadyState(cameras = uiState.cameras, viewModel = viewModel)
+                    CameraListPageReadyState(cameras = uiState.cameras, viewModel = viewModel, showCameraDeleteDialog = uiState.showDeleteCameraDialog, cameraIdToDelete = uiState.cameraIdToDelete, showCameraDeleteErrorDialog = uiState.showDeleteFailedDialog)
                 }
 
                 CameraListPageStatus.ERROR -> {
@@ -251,10 +333,20 @@ fun CameraListPageLoadingState(
 
 @Composable
 fun CameraListPageReadyState(
+    showCameraDeleteDialog: Boolean,
+    showCameraDeleteErrorDialog: Boolean,
+    cameraIdToDelete: String?,
     cameras: List<CameraListItem>,
     viewModel: CamerasListPageViewModel
 ) {
     CameraList(cameras, viewModel)
+    if (showCameraDeleteDialog) {
+        DeleteCameraDialog(viewModel, cameraIdToDelete!!)
+    }
+    if (showCameraDeleteErrorDialog) {
+        ErrorDeletingCameraDialog(viewModel)
+    }
+
 }
 
 @Composable
@@ -267,11 +359,14 @@ fun CameraList(
             CameraListCard(
                 camera = c,
                 onEditClickClosure = {
+                    Log.d("CameraID", c.id)
                     val camera = Camera(id = c.id, name = c.name, sourceUrl = c.sourceUrl)
                     viewModel.showEditCameraDialog(camera)
                 },
                 onClickInputClosure = {},
-                onDeleteClickClosure = {}
+                onDeleteClickClosure = {
+                    viewModel.showCameraDeleteDialog(c.id)
+                }
             )
         }
     }
@@ -305,6 +400,77 @@ fun loadCameras(): List<CameraListItem> {
     return emptyList()
 }
 
+@Composable
+fun ErrorDeletingCameraDialog(
+    viewModel: CamerasListPageViewModel,
+) {
+    AlertDialog(
+        onDismissRequest = {
+            viewModel.dismissCameraDeleteDialog()
+        },
+        title = {
+            Text("Error deleting camera")
+        },
+        text = {
+            Text("There was an error while trying to delete the camera")
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    viewModel.dismissCameraDeleteErrorDialog()
+                }
+            ) {
+                Text("Accept", color = MaterialTheme.colorScheme.primary)
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = {
+                    viewModel.dismissCameraDeleteErrorDialog()
+                }
+            ) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun DeleteCameraDialog(
+    viewModel: CamerasListPageViewModel,
+    cameraIdToDelete: String
+) {
+    AlertDialog(
+        onDismissRequest = {
+            viewModel.dismissCameraDeleteDialog()
+        },
+        title = {
+            Text("Delete Camera")
+        },
+        text = {
+            Text("Are you sure you want to delete this camera? This action cannot be undone.")
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    viewModel.deleteCamera(cameraIdToDelete)
+                }
+            ) {
+                Text("Delete", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = {
+                    viewModel.dismissCameraDeleteDialog()
+                }
+            ) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
 
 @Preview(showBackground = true)
 @Composable
@@ -333,8 +499,10 @@ fun ListCameraPageReadyStatePreview() {
 
 
 
-    CameraListPageReadyState(cameras = dummyCameras, viewModel = CamerasListPageViewModel(repository = CameraRepositoryForPreview()),)
+    CameraListPageReadyState(cameras = dummyCameras, viewModel = CamerasListPageViewModel(repository = CameraRepositoryForPreview()), showCameraDeleteDialog = false, cameraIdToDelete = null, showCameraDeleteErrorDialog = false)
 }
+
+
 
 
 

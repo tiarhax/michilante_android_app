@@ -12,14 +12,31 @@ data class CameraListItem (
 )
 @Serializable
 data class PutCameraInput (
+    val name: String,
+    @SerialName("source_url")
+    val sourceUrl: String
+)
 
-    val id: String?,
+@Serializable
+data class CreateCameraInput (
     val name: String,
     @SerialName("source_url")
     val sourceUrl: String
 )
 @Serializable
 data class PutCameraOutput (
+    val id: String,
+    val name: String,
+    @SerialName("source_url")
+    val sourceUrl: String,
+    @SerialName("created_at")
+    val createdAt: String,
+    @SerialName("updated_at")
+    val updatedAt: String
+)
+
+@Serializable
+data class CreateCameraOutput (
     val id: String,
     val name: String,
     @SerialName("source_url")
@@ -42,5 +59,7 @@ data class PutCameraInputError (
 
 interface ICameraRepository {
     suspend fun listCameras(): Result<List<CameraListItem>>;
-    suspend fun putCamera(input: PutCameraInput): Result<PutCameraOutput>;
+    suspend fun createCamera(input: CreateCameraInput): Result<CreateCameraOutput>;
+    suspend fun putCamera(id: String, cameraData: PutCameraInput): Result<PutCameraOutput>;
+    suspend fun deleteCamera(id: String): Result<Unit>;
 }

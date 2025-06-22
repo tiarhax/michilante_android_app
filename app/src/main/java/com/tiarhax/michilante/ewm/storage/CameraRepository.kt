@@ -5,7 +5,9 @@ import io.ktor.client.call.body
 import io.ktor.client.engine.android.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -42,15 +44,41 @@ class CameraRepository : ICameraRepository {
         }
     }
 
-    override suspend fun putCamera(input: PutCameraInput): Result<PutCameraOutput> {
+    override suspend fun createCamera(input: CreateCameraInput): Result<CreateCameraOutput> {
         return try {
-            val camera = client.put("$baseUrl/cameras") {
+            val camera = client.post("$baseUrl/cameras") {
                 contentType(ContentType.Application.Json)
                 setBody(input)
+            }.body<CreateCameraOutput>()
+            Result.success(camera)
+        } catch (e: Exception) {
+            Log.e("CameraRepository.putCamera", e.toString());
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun putCamera(id: String, cameraData: PutCameraInput): Result<PutCameraOutput> {
+        return try {
+            val url = "$baseUrl/cameras/$id";
+            Log.d("PutCameraURL", url);
+            val camera = client.put(url) {
+                contentType(ContentType.Application.Json)
+                setBody(cameraData)
             }.body<PutCameraOutput>()
             Result.success(camera)
         } catch (e: Exception) {
             Log.e("CameraRepository.putCamera", e.toString());
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteCamera(id: String): Result<Unit> {
+        return try {
+            val url = "$baseUrl/cameras/$id";
+            client.delete(url);
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("CameraRepository.deleteCamera", e.toString());
             Result.failure(e)
         }
     }
@@ -67,7 +95,19 @@ class CameraRepositoryForPreview: ICameraRepository {
         return Result.success(dummyCameras)
     }
 
-    override suspend fun putCamera(input: PutCameraInput): Result<PutCameraOutput> {
+    override suspend fun createCamera(input: CreateCameraInput): Result<CreateCameraOutput> {
         TODO("Not yet implemented")
     }
+
+    override suspend fun putCamera(
+        id: String,
+        cameraData: PutCameraInput
+    ): Result<PutCameraOutput> {
+        TODO("Not yet implemented")
+    }
+
+    override suspend fun deleteCamera(id: String): Result<Unit> {
+        TODO("Not yet implemented")
+    }
+
 }
