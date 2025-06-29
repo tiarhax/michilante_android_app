@@ -3,7 +3,9 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     kotlin("plugin.serialization") version "1.9.22"
+
 }
+
 
 android {
     namespace = "com.tiarhax.michilante"
@@ -49,6 +51,10 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.material)
+    implementation(libs.androidx.activity)
+    implementation(libs.androidx.constraintlayout)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -69,4 +75,10 @@ dependencies {
 
     // For JSON serialization
     implementation(libs.kotlinx.serialization.json)
+
+    implementation("androidx.datastore:datastore-preferences-core:1.1.7")
+    implementation("androidx.datastore:datastore:1.1.7")
+    implementation("androidx.datastore:datastore-preferences:1.1.7")
+    implementation("com.jakewharton.threetenabp:threetenabp:1.4.9")
+    implementation(libs.libvlc.all)
 }

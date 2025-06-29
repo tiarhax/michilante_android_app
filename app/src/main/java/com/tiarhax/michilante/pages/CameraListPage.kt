@@ -1,5 +1,7 @@
 package com.tiarhax.michilante.pages
 
+import android.content.Context
+import android.content.Intent
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
@@ -35,9 +37,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
+import com.tiarhax.michilante.activity.VideoStreamActivity
 import com.tiarhax.michilante.components.Camera
 import com.tiarhax.michilante.components.CameraModal
 import com.tiarhax.michilante.components.CameraModalState
+import com.tiarhax.michilante.components.LoadingDialog
 import com.tiarhax.michilante.ewm.storage.CameraRepositoryForPreview
 import com.tiarhax.michilante.ewm.storage.CreateCameraInput
 import com.tiarhax.michilante.ewm.storage.PutCameraInput
@@ -55,6 +59,7 @@ data class CameraListUIState(
     val cameraIdToDelete: String? = null,
     val showDeleteCameraDialog: Boolean = false,
     val showDeleteFailedDialog: Boolean = false,
+    val showLoadingStreamDialog: Boolean = false,
     val cameraUpsertUIState: CameraUpsertUIState = CameraUpsertUIState(),
     val cameras: List<CameraListItem> = emptyList(),
     val status: CameraListPageStatus = CameraListPageStatus.LOADING,
@@ -66,7 +71,8 @@ enum class CameraListPageStatus {
 }
 
 class CamerasListPageViewModel(
-    private val repository: ICameraRepository
+    private val repository: ICameraRepository,
+    private val context: Context?
 ): ViewModel() {
     private val _uiState = MutableStateFlow(CameraListUIState())
     val uiState: StateFlow<CameraListUIState> = _uiState.asStateFlow()
@@ -245,6 +251,35 @@ class CamerasListPageViewModel(
         )
     }
 
+    fun goToCameraVideo(id: String) {
+        _uiState.value = _uiState.value.copy(
+            showLoadingStreamDialog = true,
+        )
+        viewModelScope.launch {
+            repository.getCameraStream(id).fold(
+                onSuccess = { stream ->
+                    _uiState.value = _uiState.value.copy(
+                        showLoadingStreamDialog = false,
+                    )
+                    Log.d("getCameraStream", "success allegedly")
+                    if (context != null) {
+                        val intent = Intent(context, VideoStreamActivity::class.java);
+                        intent.putExtra("rtspUrl", stream.tempRtspUrl)
+                        context.startActivity(intent)
+                    }
+
+                },
+                onFailure = { error ->
+                    _uiState.value = _uiState.value.copy(
+                        showLoadingStreamDialog = false,
+                    )
+
+                    Log.e("getCameraStream", error.toString())
+                }
+            )
+        }
+    }
+
 }
 
 
@@ -295,7 +330,7 @@ fun CameraListPage(
                 }
 
                 CameraListPageStatus.READY -> {
-                    CameraListPageReadyState(cameras = uiState.cameras, viewModel = viewModel, showCameraDeleteDialog = uiState.showDeleteCameraDialog, cameraIdToDelete = uiState.cameraIdToDelete, showCameraDeleteErrorDialog = uiState.showDeleteFailedDialog)
+                    CameraListPageReadyState(cameras = uiState.cameras, viewModel = viewModel, showCameraDeleteDialog = uiState.showDeleteCameraDialog, cameraIdToDelete = uiState.cameraIdToDelete, showCameraDeleteErrorDialog = uiState.showDeleteFailedDialog, showLoadingStreamDialog = uiState.showLoadingStreamDialog)
                 }
 
                 CameraListPageStatus.ERROR -> {
@@ -333,6 +368,7 @@ fun CameraListPageLoadingState(
 
 @Composable
 fun CameraListPageReadyState(
+    showLoadingStreamDialog: Boolean,
     showCameraDeleteDialog: Boolean,
     showCameraDeleteErrorDialog: Boolean,
     cameraIdToDelete: String?,
@@ -347,6 +383,10 @@ fun CameraListPageReadyState(
         ErrorDeletingCameraDialog(viewModel)
     }
 
+    LoadingDialog(
+        isLoading = showLoadingStreamDialog,
+        onDismiss = {}
+    )
 }
 
 @Composable
@@ -363,7 +403,9 @@ fun CameraList(
                     val camera = Camera(id = c.id, name = c.name, sourceUrl = c.sourceUrl)
                     viewModel.showEditCameraDialog(camera)
                 },
-                onClickInputClosure = {},
+                onClickInputClosure = {
+                    viewModel.goToCameraVideo(c.id)
+                },
                 onDeleteClickClosure = {
                     viewModel.showCameraDeleteDialog(c.id)
                 }
@@ -484,7 +526,7 @@ fun PreviewCameraListPage() {
 
 
 
-    CameraListPage(viewModel = CamerasListPageViewModel(repository = CameraRepositoryForPreview()), modifier = Modifier.fillMaxWidth())
+    CameraListPage(viewModel = CamerasListPageViewModel(repository = CameraRepositoryForPreview(), context = null), modifier = Modifier.fillMaxWidth())
 }
 
 @Preview(showBackground = true)
@@ -499,7 +541,7 @@ fun ListCameraPageReadyStatePreview() {
 
 
 
-    CameraListPageReadyState(cameras = dummyCameras, viewModel = CamerasListPageViewModel(repository = CameraRepositoryForPreview()), showCameraDeleteDialog = false, cameraIdToDelete = null, showCameraDeleteErrorDialog = false)
+    CameraListPageReadyState(cameras = dummyCameras, viewModel = CamerasListPageViewModel(repository = CameraRepositoryForPreview(), context = null), showCameraDeleteDialog = false, cameraIdToDelete = null, showLoadingStreamDialog = false, showCameraDeleteErrorDialog = false)
 }
 
 

@@ -56,10 +56,20 @@ data class PutCameraInputError (
     override val message: String?,
     val details: PutCameraInputErrorDetails?
 ) : Exception()
+@Serializable
+data class CameraStream(
+    @SerialName("camera_id")
+    val cameraId: String,
+    @SerialName("temp_rtsp_url")
+    val tempRtspUrl: String,
+    @SerialName("expiration_date")
+    val expirationDate: String
+)
 
 interface ICameraRepository {
     suspend fun listCameras(): Result<List<CameraListItem>>;
     suspend fun createCamera(input: CreateCameraInput): Result<CreateCameraOutput>;
     suspend fun putCamera(id: String, cameraData: PutCameraInput): Result<PutCameraOutput>;
     suspend fun deleteCamera(id: String): Result<Unit>;
+    suspend fun getCameraStream(id: String): Result<CameraStream>;
 }

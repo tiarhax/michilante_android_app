@@ -1,5 +1,6 @@
 package com.tiarhax.michilante.components
 
+import android.content.Context
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,11 +18,12 @@ import com.tiarhax.michilante.pages.CamerasListPageViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppScaffold() {
+fun AppScaffold(context: Context) {
     Scaffold(modifier = Modifier.fillMaxSize(), topBar = { TopAppBar(title = { Text(text= "Camera List") }) }
     ) { givenPadding ->
         val viewModel = CamerasListPageViewModel(
-            repository = CameraRepository()
+            repository = CameraRepository(context = context),
+            context = context
         )
         CameraListPage(viewModel = viewModel, modifier = Modifier.fillMaxWidth().padding(givenPadding))
     }
