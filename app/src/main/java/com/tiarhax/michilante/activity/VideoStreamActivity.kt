@@ -49,8 +49,8 @@ class VideoStreamActivity : Activity() {
                 mediaPlayer.vlcVout.setVideoView(surfaceView)
                 mediaPlayer.vlcVout.setWindowSize(surfaceView.width, surfaceView.height)
                 mediaPlayer.vlcVout.attachViews()
-
                 val media = Media(libVLC, Uri.parse(rtspUrl))
+
                 media.setHWDecoderEnabled(true, false)
                 media.addOption(":network-caching=150")
                 mediaPlayer.media = media
