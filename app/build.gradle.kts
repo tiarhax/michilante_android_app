@@ -12,13 +12,15 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.tiarhax.michilante"
+            applicationId = "com.tiarhax.michilante"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["auth0Domain"] = "@string/com_auth0_domain"
+        manifestPlaceholders["auth0Scheme"] = "michilante"
     }
 
     buildTypes {
@@ -81,4 +83,7 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.7")
     implementation("com.jakewharton.threetenabp:threetenabp:1.4.9")
     implementation(libs.libvlc.all)
+    implementation("com.auth0.android:jwtdecode:2.0.2")
+    implementation("com.auth0.android:auth0:3.8.0")
+    implementation("androidx.navigation:navigation-compose:2.9.0")
 }

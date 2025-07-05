@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">michilante</string>
+    <string name="com_auth0_domain">dev-zlqhypjm4yy5ktab.us.auth0.com</string>
+    <string name="com_auth0_client_id">kX1eSeugk9zeVZ2mqp6BEVgabgxVU4UN</string>
 </resources>

@@ -1,5 +1,6 @@
 package com.tiarhax.michilante.components
 
+import LoginScreenContainer
 import android.content.Context
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +11,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.tiarhax.michilante.ewm.storage.CameraRepository
 import com.tiarhax.michilante.ewm.storage.CameraRepositoryForPreview
 import com.tiarhax.michilante.pages.CameraListPage
@@ -18,13 +22,24 @@ import com.tiarhax.michilante.pages.CamerasListPageViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppScaffold(context: Context) {
+fun AppScaffold(camerasPageViewModel: CamerasListPageViewModel) {
     Scaffold(modifier = Modifier.fillMaxSize(), topBar = { TopAppBar(title = { Text(text= "Camera List") }) }
     ) { givenPadding ->
-        val viewModel = CamerasListPageViewModel(
-            repository = CameraRepository(context = context),
-            context = context
-        )
-        CameraListPage(viewModel = viewModel, modifier = Modifier.fillMaxWidth().padding(givenPadding))
+
+
+
+
+        val navController = rememberNavController()
+        NavHost(
+            navController = navController,
+            startDestination = "login"
+        ) {
+            composable("login") {
+                LoginScreenContainer(navController = navController)
+            }
+            composable("cameras-list") {
+                CameraListPage(viewModel = camerasPageViewModel, modifier = Modifier.fillMaxWidth().padding(givenPadding))
+            }
+        }
     }
 }

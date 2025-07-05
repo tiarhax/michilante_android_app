@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.jakewharton.threetenabp.AndroidThreeTen
 import com.tiarhax.michilante.components.AppScaffold
+import com.tiarhax.michilante.ewm.storage.CameraRepository
 import com.tiarhax.michilante.ewm.storage.CameraRepositoryForPreview
 import com.tiarhax.michilante.pages.CameraListPage
 import com.tiarhax.michilante.pages.CameraListPageStatus
@@ -19,6 +20,7 @@ import com.tiarhax.michilante.pages.CamerasListPageViewModel
 import com.tiarhax.michilante.ui.theme.MichilanteTheme
 
 class MainActivity : ComponentActivity() {
+    val cameraListViewModel = CamerasListPageViewModel(context = this, repository = CameraRepository(this))
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         AndroidThreeTen.init(this);
@@ -26,7 +28,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MichilanteTheme {
-                AppScaffold(context = this)
+                AppScaffold(camerasPageViewModel = cameraListViewModel)
             }
         }
     }
