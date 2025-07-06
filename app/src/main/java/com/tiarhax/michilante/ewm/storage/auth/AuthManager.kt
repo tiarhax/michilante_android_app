@@ -1,59 +1,79 @@
 import android.app.Activity
 import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.dataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.preferencesDataStore
+import android.util.Log
+
 import com.auth0.android.Auth0
+import com.auth0.android.authentication.AuthenticationAPIClient
 import com.tiarhax.michilante.R
 import com.auth0.android.authentication.AuthenticationException
 import com.auth0.android.result.Credentials
 import com.auth0.android.callback.Callback
-import com.auth0.android.Auth0Exception
+import com.auth0.android.authentication.storage.CredentialsManager
+import com.auth0.android.authentication.storage.CredentialsManagerException
+import com.auth0.android.authentication.storage.SharedPreferencesStorage
 import com.auth0.android.provider.WebAuthProvider
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import kotlinx.coroutines.runBlocking
 
-val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "auth");
 class Auth0Manager(private val context: Context) {
     private val auth0 = Auth0.getInstance(
         context.getString(R.string.com_auth0_client_id),
         context.getString(R.string.com_auth0_domain)
     )
+    val authClient = AuthenticationAPIClient(auth0)
+    val credentialsManager = CredentialsManager(
+        authenticationClient = authClient,
+        storage = SharedPreferencesStorage(context)
+    )
 
-    private suspend fun saveTokenSecurely(accessToken: String, refreshToken: String?, idToken: String) {
-        context.dataStore.edit { pref ->
-            pref[stringPreferencesKey("accessToken")] = accessToken
-            pref[stringPreferencesKey("refreshToken")] = refreshToken?:""
-            pref[stringPreferencesKey("idToken")] = idToken
-        }
-    }
 
-    private suspend fun deleteToken() {
-        context.dataStore.edit { pref ->
-            pref[stringPreferencesKey("accessToken")] = ""
-            pref[stringPreferencesKey("refreshToken")] = ""
-            pref[stringPreferencesKey("idToken")] = ""
-        }
-    }
 
 
     fun login(onSuccess: (Credentials) -> Unit, onError: (AuthenticationException) -> Unit) {
         WebAuthProvider.login(auth0)
-            .withScheme("michilante") // Use your app's scheme
+            .withScheme("michilante")
+            .withScope("openid profile email offline_access")
             .start(context as Activity, object : Callback<Credentials, AuthenticationException> {
                 override fun onSuccess(result: Credentials) {
+                    Log.i("Auth0Manager.login#onSuccess", "Login successful")
+                    credentialsManager.saveCredentials(result)
                     onSuccess(result)
-                    runBlocking {
-                        saveTokenSecurely(result.accessToken, result.refreshToken, result.idToken)
-                    }
                 }
 
                 override fun onFailure(error: AuthenticationException) {
+                    Log.e("Auth0Manager.login#onFailure", error.getDescription())
                     onError(error)
                 }
             })
+    }
+
+    fun getAccessToken(callback: (String?, String?) -> Unit) {
+        credentialsManager.getCredentials(object : Callback<Credentials, CredentialsManagerException> {
+            override fun onSuccess(result: Credentials) {
+                callback(result.accessToken, null)
+            }
+
+            override fun onFailure(error: CredentialsManagerException) {
+                callback(null, error.message)
+            }
+        })
+    }
+
+    fun refreshTokens(callback: (Boolean, String?) -> Unit) {
+        credentialsManager.getCredentials(object : Callback<Credentials, CredentialsManagerException> {
+            override fun onSuccess(result: Credentials) {
+                callback(true, null)
+            }
+
+            override fun onFailure(error: CredentialsManagerException) {
+                callback(false, error.message)
+            }
+        })
+    }
+
+    // Check if user is authenticated
+    fun isAuthenticated(): Boolean {
+        val result = credentialsManager.hasValidCredentials();
+        Log.i("Auth0Manager.isAuthenticated()", "$result")
+        return result
     }
 
     fun logout(onComplete: () -> Unit) {
@@ -61,6 +81,7 @@ class Auth0Manager(private val context: Context) {
             .withScheme("app")
             .start(context, callback = object: Callback<Void?, AuthenticationException>  {
                 override  fun onSuccess(payload: Void?) {
+                    credentialsManager.clearCredentials()
                     onComplete()
                 }
 

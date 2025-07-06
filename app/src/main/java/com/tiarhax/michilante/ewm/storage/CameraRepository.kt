@@ -1,5 +1,6 @@
 package com.tiarhax.michilante.ewm.storage
 
+import Auth0Manager
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -20,6 +21,9 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.tiarhax.michilante.BuildConfig
+import io.ktor.client.request.headers
+import io.ktor.http.HttpHeaders
 import kotlinx.coroutines.flow.first
 import org.threeten.bp.OffsetDateTime
 import org.threeten.bp.Instant
@@ -30,10 +34,11 @@ import org.threeten.bp.format.DateTimeParseException
 
 import kotlinx.serialization.json.Json
 import java.time.ZoneId
+import kotlin.coroutines.suspendCoroutine
 import kotlin.math.exp
-
+private data class AuthenticationError(val code: Int?) : Throwable()
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings");
-val baseUrl = "http://192.168.100.10:9096";
+val baseUrl = BuildConfig.BASE_URL;
 val httpClient = HttpClient(Android) {
     install(ContentNegotiation) {
         json(Json {
@@ -47,24 +52,44 @@ val httpClient = HttpClient(Android) {
 }
 
 
-class CameraRepository (private val context: Context): ICameraRepository {
+class CameraRepository (private val context: Context, private val authManager: Auth0Manager): ICameraRepository {
     private val client = httpClient
+
+    private suspend fun getToken() : String = suspendCoroutine { continuation ->
+        authManager.getAccessToken { token, err ->
+            if (err != null) {
+                continuation.resumeWith(Result.failure(AuthenticationError(401)))
+            } else {
+                continuation.resumeWith(Result.success(token!!))
+            }
+        }
+    }
+
     override suspend fun listCameras(): Result<List<CameraListItem>> {
         return try {
-           val cameras = client.get("$baseUrl/cameras").body<List<CameraListItem>>()
+            val token = getToken()
+            val cameras = client.get("$baseUrl/cameras") {
+                headers{
+                    append(HttpHeaders.Authorization, "Bearer $token")
+                }
+           }.body<List<CameraListItem>>()
             Result.success(cameras)
         } catch (e: PutCameraInputError) {
             Log.e("CameraRepository", e.toString());
             Result.failure(e)
         } catch (e: Exception) {
-            Log.e("CameraRepository", e.toString());
+            Log.e("CameraRepository", e.stackTraceToString());
             Result.failure(e)
         }
     }
 
     override suspend fun createCamera(input: CreateCameraInput): Result<CreateCameraOutput> {
         return try {
+            val token = getToken()
             val camera = client.post("$baseUrl/cameras") {
+                headers{
+                    append(HttpHeaders.Authorization, "Bearer $token")
+                }
                 contentType(ContentType.Application.Json)
                 setBody(input)
             }.body<CreateCameraOutput>()
@@ -77,9 +102,13 @@ class CameraRepository (private val context: Context): ICameraRepository {
 
     override suspend fun putCamera(id: String, cameraData: PutCameraInput): Result<PutCameraOutput> {
         return try {
+            val token = getToken()
             val url = "$baseUrl/cameras/$id";
             Log.d("PutCameraURL", url);
             val camera = client.put(url) {
+                headers {
+                    append(HttpHeaders.Authorization, "Bearer $token")
+                }
                 contentType(ContentType.Application.Json)
                 setBody(cameraData)
             }.body<PutCameraOutput>()
@@ -93,7 +122,12 @@ class CameraRepository (private val context: Context): ICameraRepository {
     override suspend fun deleteCamera(id: String): Result<Unit> {
         return try {
             val url = "$baseUrl/cameras/$id";
-            client.delete(url);
+            val token = getToken()
+            client.delete(url) {
+                headers {
+                    append(HttpHeaders.Authorization, "Bearer $token")
+                }
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("CameraRepository.deleteCamera", e.toString());
@@ -156,8 +190,14 @@ class CameraRepository (private val context: Context): ICameraRepository {
     private suspend fun getNewCameraStream(id: String): Result<CameraStream> {
         return try {
             val url = "$baseUrl/cameras/$id/temp-stream";
+            val token = getToken()
             Log.d("CameraRepository.getNewCameraStream", "url $url");
-            val cameraStreamUnparsed = client.get(url).body<String>()
+            val cameraStreamUnparsed = client.get(url)
+            {
+                io.ktor.http.headers {
+                    append(HttpHeaders.Authorization, "Bearer $token")
+                }
+            }.body<String>()
             Log.d("CameraRepository.getNewCameraStream", "rawBody $cameraStreamUnparsed");
             val cameraStream = Json.decodeFromString<CameraStream>(cameraStreamUnparsed);
             Log.d("CameraRepository.getNewCameraStream", "it does passes request")

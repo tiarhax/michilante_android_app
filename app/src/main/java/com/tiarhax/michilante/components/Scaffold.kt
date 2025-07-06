@@ -1,5 +1,7 @@
 package com.tiarhax.michilante.components
 
+import Auth0Manager
+import AuthViewModel
 import LoginScreenContainer
 import android.content.Context
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,7 +24,7 @@ import com.tiarhax.michilante.pages.CamerasListPageViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppScaffold(camerasPageViewModel: CamerasListPageViewModel) {
+fun AppScaffold(camerasPageViewModel: CamerasListPageViewModel, authViewModel: AuthViewModel) {
     Scaffold(modifier = Modifier.fillMaxSize(), topBar = { TopAppBar(title = { Text(text= "Camera List") }) }
     ) { givenPadding ->
 
@@ -35,7 +37,7 @@ fun AppScaffold(camerasPageViewModel: CamerasListPageViewModel) {
             startDestination = "login"
         ) {
             composable("login") {
-                LoginScreenContainer(navController = navController)
+                LoginScreenContainer(navController = navController, authViewModel = authViewModel)
             }
             composable("cameras-list") {
                 CameraListPage(viewModel = camerasPageViewModel, modifier = Modifier.fillMaxWidth().padding(givenPadding))

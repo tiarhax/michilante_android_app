@@ -35,11 +35,6 @@ fun LoginScreen(
     ) {
         if (authState.isAuthenticated) {
             navController.navigate("cameras-list")
-            Text("Welcome! You are logged in.")
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onLogoutClick) {
-                Text("Logout")
-            }
         } else {
             Text("Please log in to continue")
             Spacer(modifier = Modifier.height(16.dp))
@@ -64,15 +59,13 @@ fun LoginScreen(
 }
 
 @Composable
-fun LoginScreenContainer(navController: NavController) {
-    val context = LocalContext.current
-    val auth0Manager = remember { Auth0Manager(context) }
-    val viewModel = remember { AuthViewModel(auth0Manager) }
-    val authState  by viewModel.authState.collectAsState()
+fun LoginScreenContainer(navController: NavController, authViewModel: AuthViewModel) {
+    val authState  by authViewModel.authState.collectAsState()
+
     LoginScreen(
         authState = authState,
-        onLoginClick = { viewModel.login() },
-        onLogoutClick = { viewModel.logout() },
+        onLoginClick = { authViewModel.login() },
+        onLogoutClick = { authViewModel.logout() },
         navController = navController
     )
 }

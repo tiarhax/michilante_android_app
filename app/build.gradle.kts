@@ -12,7 +12,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-            applicationId = "com.tiarhax.michilante"
+        applicationId = "com.tiarhax.michilante"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -24,12 +24,40 @@ android {
     }
 
     buildTypes {
-        release {
+        getByName("release") {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+
+        create("localDevDebug") {
+            isDebuggable = true
+            isMinifyEnabled = false
+            buildConfigField("String", "BASE_URL", "\"http://192.168.100.9:9096\"")
+            resValue("string", "app_name", "MichilanteLDBG")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+
+    flavorDimensions += "environment"
+
+    productFlavors {
+        create("local") {
+            dimension = "environment"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            buildConfigField("String", "BASE_URL", "\"https://dev.api.example.com/\"")
+        }
+
+        create("prod") {
+            dimension = "environment"
+            buildConfigField("String", "BASE_URL", "\"https://api.example.com/\"")
         }
     }
     compileOptions {
@@ -41,6 +69,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
