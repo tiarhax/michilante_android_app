@@ -47,6 +47,8 @@ import com.tiarhax.michilante.ewm.storage.CreateCameraInput
 import com.tiarhax.michilante.ewm.storage.PutCameraInput
 import com.tiarhax.michilante.pages.ListCameraPageReadyStatePreview
 import com.tiarhax.michilante.viewmodel.CreateCameraViewModel
+import kotlin.Int
+import kotlin.time.Duration
 
 data class CameraUpsertUIState (
     val editingCamera: Camera? = null,
@@ -154,6 +156,13 @@ class CamerasListPageViewModel(
         if (_uiState.value.cameraUpsertUIState.editingCamera != null) {
             viewModelScope.launch {
                 val editingCamera = _uiState.value.cameraUpsertUIState.editingCamera!!;
+                _uiState.value = _uiState.value.copy(
+
+                    cameraUpsertUIState = _uiState.value.cameraUpsertUIState.copy(
+                        status = CameraModalState.LOADING,
+
+                        )
+                )
                 repository.putCamera(
                     editingCamera.id!!,
                     com.tiarhax.michilante.ewm.storage.PutCameraInput(
@@ -166,13 +175,19 @@ class CamerasListPageViewModel(
                         resetCameraForm()
                     },
                     onFailure = { err ->
-                        _uiState.value = _uiState.value.copy(
+                        Log.d("CameraListPage", "Failure executed")
+                        if (context != null) {
+                            Log.d("CameraListPage", "Should make toast")
 
+                            Toast.makeText(context, err.message, Toast.LENGTH_LONG).show();
+                        }
+                        _uiState.value = _uiState.value.copy(
                             cameraUpsertUIState = _uiState.value.cameraUpsertUIState.copy(
                                 status = CameraModalState.ERROR,
-                                error = err.message
-
+                                error = err.message,
+                                showCameraDialog = false
                             )
+
                         )
                     }
                 )
@@ -181,6 +196,13 @@ class CamerasListPageViewModel(
         } else {
             Log.d("CamerasListPageViewModel", "creating camera")
             viewModelScope.launch {
+                _uiState.value = _uiState.value.copy(
+
+                    cameraUpsertUIState = _uiState.value.cameraUpsertUIState.copy(
+                        status = CameraModalState.LOADING,
+
+                    )
+                )
                 repository.createCamera(
                     CreateCameraInput(
                         name = camera.name,
@@ -192,12 +214,18 @@ class CamerasListPageViewModel(
                         resetCameraForm()
                     },
                     onFailure = { err ->
+                        Log.d("CameraListPage", "Failure executed")
+                        if (context != null) {
+                            Log.d("CameraListPage", "Should make toast")
+
+                            Toast.makeText(context, err.message, Toast.LENGTH_LONG).show();
+                        }
                         _uiState.value = _uiState.value.copy(
 
                             cameraUpsertUIState = _uiState.value.cameraUpsertUIState.copy(
                                 status = CameraModalState.ERROR,
-                                error = err.message
-
+                                error = err.message,
+                                showCameraDialog = false
                             )
                         )
                     }
@@ -220,10 +248,13 @@ class CamerasListPageViewModel(
 
 
                 },
-                onFailure = {
+                onFailure = { err ->
                     _uiState.value = _uiState.value.copy(
                         showDeleteCameraDialog = false,
                         showDeleteFailedDialog = true
+                    )
+                    _uiState.value = _uiState.value.copy(
+                        error = err.message
                     )
                 }
             )
@@ -273,7 +304,10 @@ class CamerasListPageViewModel(
                     _uiState.value = _uiState.value.copy(
                         showLoadingStreamDialog = false,
                     )
+                    if (context != null) {
 
+                        Toast.makeText(context, error.message, Toast.LENGTH_LONG).show()
+                    }
                     Log.e("getCameraStream", error.toString())
                 }
             )

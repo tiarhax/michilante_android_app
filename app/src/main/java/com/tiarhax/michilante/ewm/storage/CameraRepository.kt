@@ -22,8 +22,13 @@ import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.tiarhax.michilante.BuildConfig
+import io.ktor.client.request.HttpRequest
 import io.ktor.client.request.headers
+import io.ktor.client.request.request
+import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.isSuccess
 import kotlinx.coroutines.flow.first
 import org.threeten.bp.OffsetDateTime
 import org.threeten.bp.Instant
@@ -37,6 +42,10 @@ import java.time.ZoneId
 import kotlin.coroutines.suspendCoroutine
 import kotlin.math.exp
 private data class AuthenticationError(val code: Int?) : Throwable()
+private data class CameraRepositoryError(
+    override val message: String,
+    val details: HashMap<String, List<String>>?
+): Throwable()
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings");
 val baseUrl = BuildConfig.BASE_URL;
 val httpClient = HttpClient(Android) {
@@ -55,9 +64,28 @@ val httpClient = HttpClient(Android) {
 class CameraRepository (private val context: Context, private val authManager: Auth0Manager): ICameraRepository {
     private val client = httpClient
 
+    private fun getUnknownError(): CameraRepositoryError {
+        return CameraRepositoryError(message = "An unknown error has occurred", details = null)
+    }
+    private suspend fun handleHttpResponse(i: HttpResponse): Result<HttpResponse> {
+        if (i.status.isSuccess()) {
+            return Result.success(i);
+        }
+
+        try {
+            val err = i.body<CameraRepositoryError>()
+            return Result.failure(err)
+        } catch(err: Throwable) {
+            val e = CameraRepositoryError(message = "An unknown error has occurred", details = null)
+            return Result.failure(e)
+        }
+    }
+
+
     private suspend fun getToken() : String = suspendCoroutine { continuation ->
         authManager.getAccessToken { token, err ->
             if (err != null) {
+                Log.e("CameraRepository.getToken", err);
                 continuation.resumeWith(Result.failure(AuthenticationError(401)))
             } else {
                 continuation.resumeWith(Result.success(token!!))
@@ -68,35 +96,44 @@ class CameraRepository (private val context: Context, private val authManager: A
     override suspend fun listCameras(): Result<List<CameraListItem>> {
         return try {
             val token = getToken()
-            val cameras = client.get("$baseUrl/cameras") {
+            val response = client.get("$baseUrl/cameras") {
                 headers{
                     append(HttpHeaders.Authorization, "Bearer $token")
                 }
-           }.body<List<CameraListItem>>()
+           };
+
+            val handledResponse = handleHttpResponse(response).getOrThrow()
+            val cameras = handledResponse.body<List<CameraListItem>>()
             Result.success(cameras)
         } catch (e: PutCameraInputError) {
             Log.e("CameraRepository", e.toString());
             Result.failure(e)
-        } catch (e: Exception) {
+        } catch(c: CameraRepositoryError) {
+            Result.failure(c)
+        } catch (e: Throwable) {
             Log.e("CameraRepository", e.stackTraceToString());
-            Result.failure(e)
+            return Result.failure(getUnknownError())
         }
     }
 
     override suspend fun createCamera(input: CreateCameraInput): Result<CreateCameraOutput> {
         return try {
             val token = getToken()
-            val camera = client.post("$baseUrl/cameras") {
+            val response = client.post("$baseUrl/cameras") {
                 headers{
                     append(HttpHeaders.Authorization, "Bearer $token")
                 }
                 contentType(ContentType.Application.Json)
                 setBody(input)
-            }.body<CreateCameraOutput>()
+            }
+            val handledResponse = handleHttpResponse(response).getOrThrow()
+            val camera = handledResponse.body<CreateCameraOutput>()
             Result.success(camera)
-        } catch (e: Exception) {
-            Log.e("CameraRepository.putCamera", e.toString());
-            Result.failure(e)
+        } catch(c: CameraRepositoryError) {
+            Result.failure(c)
+        } catch (e: Throwable) {
+            Log.e("CameraRepository", e.stackTraceToString());
+            return Result.failure(getUnknownError())
         }
     }
 
@@ -105,17 +142,22 @@ class CameraRepository (private val context: Context, private val authManager: A
             val token = getToken()
             val url = "$baseUrl/cameras/$id";
             Log.d("PutCameraURL", url);
-            val camera = client.put(url) {
+            val response = client.put(url) {
                 headers {
                     append(HttpHeaders.Authorization, "Bearer $token")
                 }
                 contentType(ContentType.Application.Json)
                 setBody(cameraData)
-            }.body<PutCameraOutput>()
+            }
+
+            val handledResponse = handleHttpResponse(response).getOrThrow()
+            val camera = handledResponse.body<PutCameraOutput>()
             Result.success(camera)
-        } catch (e: Exception) {
-            Log.e("CameraRepository.putCamera", e.toString());
-            Result.failure(e)
+        } catch (c: CameraRepositoryError) {
+            Result.failure(c)
+        } catch (e: Throwable) {
+            Log.e("CameraRepository", e.stackTraceToString());
+            return Result.failure(getUnknownError())
         }
     }
 
@@ -129,9 +171,11 @@ class CameraRepository (private val context: Context, private val authManager: A
                 }
             }
             Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e("CameraRepository.deleteCamera", e.toString());
-            Result.failure(e)
+        } catch (c: CameraRepositoryError) {
+            Result.failure(c)
+        } catch (e: Throwable) {
+            Log.e("CameraRepository", e.stackTraceToString());
+            return Result.failure(getUnknownError())
         }
     }
 
@@ -147,9 +191,11 @@ class CameraRepository (private val context: Context, private val authManager: A
         } catch (e: PutCameraInputError) {
             Log.e("CameraRepository.getCameraStream", e.toString());
             Result.failure(e)
-        } catch (e: Exception) {
-            Log.e("CameraRepository.getCameraStream", e.toString());
-            Result.failure(e)
+        } catch (c: CameraRepositoryError) {
+            Result.failure(c)
+        } catch (e: Throwable) {
+            Log.e("CameraRepository", e.stackTraceToString());
+            return Result.failure(getUnknownError())
         }
     }
 
@@ -180,9 +226,11 @@ class CameraRepository (private val context: Context, private val authManager: A
         } catch (e: PutCameraInputError) {
             Log.e("CameraRepository.getCameraStreamFromPreferences", e.toString());
             Result.failure(e)
-        } catch (e: Exception) {
-            Log.e("CameraRepository.getCameraStreamFromPreferences", e.toString());
-            Result.failure(e)
+        } catch (c: CameraRepositoryError) {
+            Result.failure(c)
+        } catch (e: Throwable) {
+            Log.e("CameraRepository", e.stackTraceToString());
+            return Result.failure(getUnknownError())
         }
     }
 
@@ -192,12 +240,14 @@ class CameraRepository (private val context: Context, private val authManager: A
             val url = "$baseUrl/cameras/$id/temp-stream";
             val token = getToken()
             Log.d("CameraRepository.getNewCameraStream", "url $url");
-            val cameraStreamUnparsed = client.get(url)
-            {
-                io.ktor.http.headers {
+
+            val response = client.get(url) {
+                headers{
                     append(HttpHeaders.Authorization, "Bearer $token")
                 }
-            }.body<String>()
+            }
+            val handledResponse = handleHttpResponse(response).getOrThrow();
+            val cameraStreamUnparsed = handledResponse.body<String>()
             Log.d("CameraRepository.getNewCameraStream", "rawBody $cameraStreamUnparsed");
             val cameraStream = Json.decodeFromString<CameraStream>(cameraStreamUnparsed);
             Log.d("CameraRepository.getNewCameraStream", "it does passes request")
@@ -209,9 +259,11 @@ class CameraRepository (private val context: Context, private val authManager: A
         } catch (e: PutCameraInputError) {
             Log.e("CameraRepository.getNewCameraStream", e.toString());
             Result.failure(e)
-        } catch (e: Exception) {
-            Log.e("CameraRepository.getNewCameraStream", e.toString());
-            Result.failure(e)
+        } catch(c: CameraRepositoryError) {
+            Result.failure(c)
+        } catch (e: Throwable) {
+            Log.e("CameraRepository", e.stackTraceToString());
+            return Result.failure(getUnknownError())
         }
     }
 

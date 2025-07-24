@@ -31,6 +31,7 @@ class Auth0Manager(private val context: Context) {
         WebAuthProvider.login(auth0)
             .withScheme("michilante")
             .withScope("openid profile email offline_access")
+            .withAudience("https://api.michilante.com")
             .start(context as Activity, object : Callback<Credentials, AuthenticationException> {
                 override fun onSuccess(result: Credentials) {
                     Log.i("Auth0Manager.login#onSuccess", "Login successful")
@@ -52,6 +53,7 @@ class Auth0Manager(private val context: Context) {
             }
 
             override fun onFailure(error: CredentialsManagerException) {
+                Log.e("AuthManager guaka guaka", error.message?:"")
                 callback(null, error.message)
             }
         })

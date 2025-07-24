@@ -45,7 +45,8 @@ fun CameraModal(
 
         val isEditing = camera != null
         val title = if (isEditing) "Edit Camera" else "Add New Camera"
-
+        val disableFieldsWhileLoading = status == CameraModalState.LOADING;
+        Log.d("CameraModalForm", "disableFieldsWhileLoading: ${disableFieldsWhileLoading}")
         Dialog(
             onDismissRequest = onDismiss,
             properties = DialogProperties(
@@ -88,7 +89,7 @@ fun CameraModal(
                             )
                         }
 
-                        IconButton(onClick = onDismiss) {
+                        IconButton(onClick = onDismiss, enabled = !disableFieldsWhileLoading) {
 
                             Icon(
                                 imageVector = Icons.Default.Close,
@@ -101,8 +102,9 @@ fun CameraModal(
 
                     // Camera Name Field
                     OutlinedTextField(
+
                         value = name,
-                        //enabled  = status == CameraModalState.LOADING,
+                        enabled  = !disableFieldsWhileLoading,
                         onValueChange = {
                             name = it
                             nameError = null
@@ -123,7 +125,7 @@ fun CameraModal(
                     // RTSP URL Field
                     OutlinedTextField(
                         value = rtspUrl,
-                        //enabled  = status == CameraModalState.LOADING,
+                        enabled  = !disableFieldsWhileLoading,
                         onValueChange = {
                             rtspUrl = it
                             rtspError = null
@@ -156,7 +158,7 @@ fun CameraModal(
                         Spacer(modifier = Modifier.width(8.dp))
 
                         Button(
-                            enabled = status == CameraModalState.READY,
+                            enabled = !disableFieldsWhileLoading,
                             onClick = {
                                 // Validate inputs
                                 var hasError = false
@@ -175,6 +177,7 @@ fun CameraModal(
                                 }
                                 Log.i("CameraModal ", "hasError: ${hasError}")
                                 if (!hasError) {
+                                    status = CameraModalState.LOADING
                                     val newCamera = Camera(
                                         id = camera?.id,
                                         name = name.trim(),

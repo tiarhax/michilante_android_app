@@ -43,23 +43,20 @@ android {
             )
             signingConfig = signingConfigs.getByName("debug")
         }
-    }
 
-    flavorDimensions += "environment"
-
-    productFlavors {
-        create("local") {
-            dimension = "environment"
-            applicationIdSuffix = ".dev"
-            versionNameSuffix = "-dev"
-            buildConfigField("String", "BASE_URL", "\"https://dev.api.example.com/\"")
+        create("cloudDevDebug") {
+            initWith(getByName("debug"))
+            buildConfigField("String", "BASE_URL", "\"http://10.13.13.2:9096\"")
+            resValue("string", "app_name", "MichilanteCL_DBG")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            applicationIdSuffix = ".debugCloudDev"
         }
 
-        create("prod") {
-            dimension = "environment"
-            buildConfigField("String", "BASE_URL", "\"https://api.example.com/\"")
-        }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
