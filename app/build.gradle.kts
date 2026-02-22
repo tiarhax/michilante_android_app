@@ -35,7 +35,7 @@ android {
         create("localDevDebug") {
             isDebuggable = true
             isMinifyEnabled = false
-            buildConfigField("String", "BASE_URL", "\"http://192.168.100.9:9096\"")
+            buildConfigField("String", "BASE_URL", "\"http://192.168.100.14:9096\"")
             resValue("string", "app_name", "MichilanteLDBG")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -48,6 +48,17 @@ android {
             initWith(getByName("debug"))
             buildConfigField("String", "BASE_URL", "\"http://10.13.13.2:9096\"")
             resValue("string", "app_name", "MichilanteCL_DBG")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            applicationIdSuffix = ".debugCloudDev"
+        }
+
+        create("prod") {
+            initWith(getByName("debug"))
+            buildConfigField("String", "BASE_URL", "\"http://189.20.0.53:9096\"")
+            resValue("string", "app_name", "ElMichilante")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
