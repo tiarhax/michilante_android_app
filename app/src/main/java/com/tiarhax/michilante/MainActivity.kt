@@ -17,6 +17,8 @@ import com.jakewharton.threetenabp.AndroidThreeTen
 import com.tiarhax.michilante.components.AppScaffold
 import com.tiarhax.michilante.ewm.storage.CameraRepository
 import com.tiarhax.michilante.ewm.storage.CameraRepositoryForPreview
+import com.tiarhax.michilante.ewm.storage.CameraRepositoryV2
+import com.tiarhax.michilante.ewm.storage.UserRepository
 import com.tiarhax.michilante.pages.CameraListPage
 import com.tiarhax.michilante.pages.CameraListPageStatus
 import com.tiarhax.michilante.pages.CamerasListPageViewModel
@@ -28,14 +30,17 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         val authManager = Auth0Manager(this)
-        val cameraListViewModel = CamerasListPageViewModel(context = this, repository = CameraRepository(this, authManager = authManager))
+        val cameraRepository = CameraRepository(this, authManager = authManager)
+        val cameraRepositoryV2 = CameraRepositoryV2(this, authManager = authManager)
+        val userRepository = UserRepository(this, authManager = authManager)
+        val cameraListViewModel = CamerasListPageViewModel(context = this, repository = cameraRepository, authManager = authManager)
         authViewModel = AuthViewModel(authManager)
         AndroidThreeTen.init(this);
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             MichilanteTheme {
-                AppScaffold(camerasPageViewModel = cameraListViewModel, authViewModel)
+                AppScaffold(camerasPageViewModel = cameraListViewModel, authViewModel, cameraRepositoryV2 = cameraRepositoryV2, userRepository = userRepository)
             }
         }
     }

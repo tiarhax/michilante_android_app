@@ -45,6 +45,9 @@ import com.tiarhax.michilante.components.LoadingDialog
 import com.tiarhax.michilante.ewm.storage.CameraRepositoryForPreview
 import com.tiarhax.michilante.ewm.storage.CreateCameraInput
 import com.tiarhax.michilante.ewm.storage.PutCameraInput
+import Auth0Manager
+import androidx.navigation.NavController
+import java.net.URLEncoder
 import com.tiarhax.michilante.pages.ListCameraPageReadyStatePreview
 import com.tiarhax.michilante.viewmodel.CreateCameraViewModel
 import kotlin.Int
@@ -65,7 +68,8 @@ data class CameraListUIState(
     val cameraUpsertUIState: CameraUpsertUIState = CameraUpsertUIState(),
     val cameras: List<CameraListItem> = emptyList(),
     val status: CameraListPageStatus = CameraListPageStatus.LOADING,
-    val error: String? = null
+    val error: String? = null,
+    val isAdmin: Boolean = false
 )
 
 enum class CameraListPageStatus {
@@ -74,12 +78,34 @@ enum class CameraListPageStatus {
 
 class CamerasListPageViewModel(
     private val repository: ICameraRepository,
-    private val context: Context?
+    private val context: Context?,
+    private val authManager: Auth0Manager? = null
 ): ViewModel() {
     private val _uiState = MutableStateFlow(CameraListUIState())
     val uiState: StateFlow<CameraListUIState> = _uiState.asStateFlow()
+    private var navController: NavController? = null
+
     init {
         loadCameras()
+        checkAdminRole()
+    }
+
+    fun setNavController(controller: NavController) {
+        navController = controller
+    }
+
+    private fun checkAdminRole() {
+        val isAdmin = authManager?.hasRole("Admin") ?: false
+        _uiState.value = _uiState.value.copy(isAdmin = isAdmin)
+    }
+
+    fun goToCameraDetails(cameraId: String) {
+        val camera = _uiState.value.cameras.find { it.id == cameraId }
+        if (camera != null) {
+            val encodedName = URLEncoder.encode(camera.name, "UTF-8")
+            val encodedUrl = URLEncoder.encode(camera.sourceUrl, "UTF-8")
+            navController?.navigate("camera-details/$cameraId/$encodedName/$encodedUrl")
+        }
     }
 
     fun loadCameras() {
@@ -432,6 +458,7 @@ fun CameraList(
         cameras.map { c ->
             CameraListCard(
                 camera = c,
+                isAdmin = viewModel.uiState.collectAsState().value.isAdmin,
                 onEditClickClosure = {
                     Log.d("CameraID", c.id)
                     val camera = Camera(id = c.id, name = c.name, sourceUrl = c.sourceUrl)
@@ -442,6 +469,9 @@ fun CameraList(
                 },
                 onDeleteClickClosure = {
                     viewModel.showCameraDeleteDialog(c.id)
+                },
+                onDetailsClickClosure = {
+                    viewModel.goToCameraDetails(c.id)
                 }
             )
         }

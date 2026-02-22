@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
@@ -40,9 +41,11 @@ data class CameraListItem(
 @Composable
 fun CameraListCard(
     camera: CameraListItem,
+    isAdmin: Boolean,
     onClickInputClosure: () -> Unit,
     onEditClickClosure: () -> Unit,
-    onDeleteClickClosure: () -> Unit
+    onDeleteClickClosure: () -> Unit,
+    onDetailsClickClosure: () -> Unit
 ) {
     Button(
         colors = ButtonDefaults.buttonColors(
@@ -72,24 +75,35 @@ fun CameraListCard(
                 Box(modifier = Modifier.fillMaxWidth()) {
                     Row (modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
                         Button(
-                            onClick = onEditClickClosure,
+                            onClick = onDetailsClickClosure,
                             modifier = Modifier.padding(5.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = null
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "Details"
                             )
                         }
 
+                        if (isAdmin) {
+                            Button(
+                                onClick = onEditClickClosure,
+                                modifier = Modifier.padding(5.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit"
+                                )
+                            }
 
-                        Button(
-                            onClick = onDeleteClickClosure,
-                            modifier = Modifier.padding(5.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = null
-                            )
+                            Button(
+                                onClick = onDeleteClickClosure,
+                                modifier = Modifier.padding(5.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete"
+                                )
+                            }
                         }
                     }
                 }
@@ -108,10 +122,12 @@ fun CameraListCard(
 fun CameraListCardPreview() {
     val camera = CameraListItem(id = "1", name = "Living Room 1", sourceUrl = "")
     CameraListCard(
-        onClickInputClosure = {},
         camera = camera,
+        isAdmin = true,
+        onClickInputClosure = {},
         onEditClickClosure = {},
-        onDeleteClickClosure = {}
+        onDeleteClickClosure = {},
+        onDetailsClickClosure = {}
     )
 }
 

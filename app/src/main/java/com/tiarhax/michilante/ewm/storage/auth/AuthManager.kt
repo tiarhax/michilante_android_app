@@ -1,6 +1,8 @@
 import android.app.Activity
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
+import com.auth0.android.jwt.JWT
 
 import com.auth0.android.Auth0
 import com.auth0.android.authentication.AuthenticationAPIClient
@@ -23,6 +25,31 @@ class Auth0Manager(private val context: Context) {
         authenticationClient = authClient,
         storage = SharedPreferencesStorage(context)
     )
+    private val rolesPrefs: SharedPreferences = context.getSharedPreferences("user_roles", Context.MODE_PRIVATE)
+
+    companion object {
+        private const val ROLES_CLAIM_KEY = "https://michilante.tiarhax.com/roles"
+        private const val ROLES_PREFS_KEY = "roles"
+    }
+
+    private fun extractAndSaveRoles(accessToken: String) {
+        try {
+            val jwt = JWT(accessToken)
+            val roles = jwt.getClaim(ROLES_CLAIM_KEY).asList(String::class.java) ?: emptyList()
+            rolesPrefs.edit().putStringSet(ROLES_PREFS_KEY, roles.toSet()).apply()
+            Log.i("Auth0Manager", "Saved roles: $roles")
+        } catch (e: Exception) {
+            Log.e("Auth0Manager", "Failed to extract roles from token: ${e.message}")
+        }
+    }
+
+    fun getUserRoles(): Set<String> {
+        return rolesPrefs.getStringSet(ROLES_PREFS_KEY, emptySet()) ?: emptySet()
+    }
+
+    fun hasRole(role: String): Boolean {
+        return getUserRoles().contains(role)
+    }
 
 
 
@@ -36,6 +63,7 @@ class Auth0Manager(private val context: Context) {
                 override fun onSuccess(result: Credentials) {
                     Log.i("Auth0Manager.login#onSuccess", "Login successful")
                     credentialsManager.saveCredentials(result)
+                    extractAndSaveRoles(result.accessToken)
                     onSuccess(result)
                 }
 
@@ -49,6 +77,7 @@ class Auth0Manager(private val context: Context) {
     fun getAccessToken(callback: (String?, String?) -> Unit) {
         credentialsManager.getCredentials(object : Callback<Credentials, CredentialsManagerException> {
             override fun onSuccess(result: Credentials) {
+                extractAndSaveRoles(result.accessToken)
                 callback(result.accessToken, null)
             }
 
