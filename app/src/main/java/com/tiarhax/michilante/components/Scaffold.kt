@@ -24,7 +24,7 @@ import com.tiarhax.michilante.pages.CamerasListPageViewModel
 import com.tiarhax.michilante.pages.CameraDetailsPage
 import com.tiarhax.michilante.pages.CameraDetailsPageViewModel
 import com.tiarhax.michilante.ewm.storage.ICameraRepositoryV2
-import com.tiarhax.michilante.ewm.storage.IUserRepository
+import com.tiarhax.michilante.ewm.storage.ICameraRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,7 +32,7 @@ fun AppScaffold(
     camerasPageViewModel: CamerasListPageViewModel,
     authViewModel: AuthViewModel,
     cameraRepositoryV2: ICameraRepositoryV2? = null,
-    userRepository: IUserRepository? = null
+    cameraRepository: ICameraRepository? = null
 ) {
     Scaffold(modifier = Modifier.fillMaxSize(), topBar = { TopAppBar(title = { Text(text= "Camera List") }) }
     ) { givenPadding ->
@@ -56,10 +56,10 @@ fun AppScaffold(
                 val cameraId = backStackEntry.arguments?.getString("cameraId") ?: ""
                 val cameraName = backStackEntry.arguments?.getString("cameraName") ?: ""
                 val cameraUrl = backStackEntry.arguments?.getString("cameraUrl") ?: ""
-                if (cameraRepositoryV2 != null && userRepository != null) {
+                if (cameraRepositoryV2 != null && cameraRepository != null) {
                     val viewModel = CameraDetailsPageViewModel(
                         repository = cameraRepositoryV2,
-                        userRepository = userRepository,
+                        cameraRepository = cameraRepository,
                         cameraId = cameraId,
                         cameraName = cameraName,
                         cameraUrl = cameraUrl

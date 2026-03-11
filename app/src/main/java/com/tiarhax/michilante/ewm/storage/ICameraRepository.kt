@@ -66,10 +66,19 @@ data class CameraStream(
     val expirationDate: String
 )
 
+@Serializable
+data class BlockableUser(
+    @SerialName("user_id")
+    val userId: String,
+    val email: String,
+    val name: String
+)
+
 interface ICameraRepository {
     suspend fun listCameras(): Result<List<CameraListItem>>;
     suspend fun createCamera(input: CreateCameraInput): Result<CreateCameraOutput>;
     suspend fun putCamera(id: String, cameraData: PutCameraInput): Result<PutCameraOutput>;
     suspend fun deleteCamera(id: String): Result<Unit>;
     suspend fun getCameraStream(id: String): Result<CameraStream>;
+    suspend fun listBlockableUsers(cameraId: String): Result<List<BlockableUser>>;
 }

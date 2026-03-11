@@ -52,9 +52,9 @@ import com.tiarhax.michilante.ewm.storage.CreateCameraTempBlockingInput
 import com.tiarhax.michilante.ewm.storage.ICameraRepositoryV2
 import com.tiarhax.michilante.ewm.storage.CameraRepositoryV2ForPreview
 import com.tiarhax.michilante.ewm.storage.CameraListItemV2
-import com.tiarhax.michilante.ewm.storage.IUserRepository
-import com.tiarhax.michilante.ewm.storage.UserRepositoryForPreview
-import com.tiarhax.michilante.ewm.storage.UserResultItem
+import com.tiarhax.michilante.ewm.storage.ICameraRepository
+import com.tiarhax.michilante.ewm.storage.CameraRepositoryForPreview
+import com.tiarhax.michilante.ewm.storage.BlockableUser
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -75,7 +75,7 @@ data class CameraDetailsUIState(
     val tempBlockings: List<CameraTempBlockingItem> = emptyList(),
     val error: String? = null,
     val showBlockUserModal: Boolean = false,
-    val availableUsers: List<UserResultItem> = emptyList(),
+    val availableUsers: List<BlockableUser> = emptyList(),
     val isLoadingUsers: Boolean = false,
     val selectedUserId: String? = null,
     val showDatePicker: Boolean = false,
@@ -84,7 +84,7 @@ data class CameraDetailsUIState(
 
 class CameraDetailsPageViewModel(
     private val repository: ICameraRepositoryV2,
-    private val userRepository: IUserRepository,
+    private val cameraRepository: ICameraRepository,
     private val cameraId: String,
     private val cameraName: String,
     private val cameraUrl: String
@@ -141,7 +141,7 @@ class CameraDetailsPageViewModel(
 
     private fun loadAvailableUsers() {
         viewModelScope.launch {
-            userRepository.listUsers().fold(
+            cameraRepository.listBlockableUsers(cameraId).fold(
                 onSuccess = { users ->
                     _uiState.value = _uiState.value.copy(
                         availableUsers = users,
@@ -149,7 +149,7 @@ class CameraDetailsPageViewModel(
                     )
                 },
                 onFailure = { error ->
-                    Log.e("CameraDetailsPageViewModel", "Failed to load users: ${error.message}")
+                    Log.e("CameraDetailsPageViewModel", "Failed to load blockable users: ${error.message}")
                     _uiState.value = _uiState.value.copy(isLoadingUsers = false)
                 }
             )
@@ -318,7 +318,7 @@ fun CameraDetailsPage(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BlockUserModal(
-    users: List<UserResultItem>,
+    users: List<BlockableUser>,
     isLoading: Boolean,
     selectedUserId: String?,
     showDatePicker: Boolean,
@@ -458,7 +458,7 @@ fun BlockedUserCard(
 fun CameraDetailsPagePreview() {
     val viewModel = CameraDetailsPageViewModel(
         repository = CameraRepositoryV2ForPreview(),
-        userRepository = UserRepositoryForPreview(),
+        cameraRepository = CameraRepositoryForPreview(),
         cameraId = "1",
         cameraName = "Front Door Camera",
         cameraUrl = "rtsp://example.com/stream1"

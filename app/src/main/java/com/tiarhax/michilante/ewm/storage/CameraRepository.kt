@@ -199,7 +199,25 @@ class CameraRepository (private val context: Context, private val authManager: A
         }
     }
 
-
+    override suspend fun listBlockableUsers(cameraId: String): Result<List<BlockableUser>> {
+        return try {
+            val token = getToken()
+            val url = "$baseUrl/cameras/$cameraId/blockable-users"
+            val response = client.get(url) {
+                headers {
+                    append(HttpHeaders.Authorization, "Bearer $token")
+                }
+            }
+            val handledResponse = handleHttpResponse(response).getOrThrow()
+            val users = handledResponse.body<List<BlockableUser>>()
+            Result.success(users)
+        } catch (c: CameraRepositoryError) {
+            Result.failure(c)
+        } catch (e: Throwable) {
+            Log.e("CameraRepository", e.stackTraceToString())
+            return Result.failure(getUnknownError())
+        }
+    }
 
     private suspend fun getCameraStreamFromPreferences(id: String): Result<CameraStream?> {
         val preferences = context.dataStore.data.first()
@@ -298,4 +316,11 @@ class CameraRepositoryForPreview: ICameraRepository {
         TODO("Not yet implemented")
     }
 
+    override suspend fun listBlockableUsers(cameraId: String): Result<List<BlockableUser>> {
+        val dummyUsers = listOf(
+            BlockableUser(userId = "1", email = "user1@example.com", name = "User One"),
+            BlockableUser(userId = "2", email = "user2@example.com", name = "User Two")
+        )
+        return Result.success(dummyUsers)
+    }
 }

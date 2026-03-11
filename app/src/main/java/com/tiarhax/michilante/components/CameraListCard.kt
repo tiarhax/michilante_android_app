@@ -74,7 +74,9 @@ fun CameraListCard(
 
                 Box(modifier = Modifier.fillMaxWidth()) {
                     Row (modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
-                        Button(
+
+                        if (isAdmin) {
+                            Button(
                             onClick = onDetailsClickClosure,
                             modifier = Modifier.padding(5.dp)
                         ) {
@@ -84,7 +86,6 @@ fun CameraListCard(
                             )
                         }
 
-                        if (isAdmin) {
                             Button(
                                 onClick = onEditClickClosure,
                                 modifier = Modifier.padding(5.dp)

@@ -40,7 +40,7 @@ android {
         create("localDevDebug") {
             isDebuggable = true
             isMinifyEnabled = false
-            buildConfigField("String", "BASE_URL", "\"http://192.168.100.14:9096\"")
+            buildConfigField("String", "BASE_URL", "\"http://192.168.100.18:9096\"")
             resValue("string", "app_name", "MichilanteLDBG")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
